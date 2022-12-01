@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(p8105.datasets)
 library(tidyverse)
 library(stats)
+
 ```
 
 # Problem 1
@@ -99,10 +100,20 @@ head(city_state_glms)
 ```
 
 Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
+
 ```{r}
-
+city_state_glms %>% 
+  mutate(city_state = forcats::fct_reorder(city_state, OR)) %>% 
+  ggplot(aes(x = city_state, y = OR, color = city_state)) + geom_point() + geom_errorbar(aes(ymin = OR_low_CI, ymax = OR_high_CI)) +
+  theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 7))  + 
+  labs(
+    title = "Adjusted Odds Ratios for Male to Female Solved Homicides",
+    x = "Location (City, State)",
+    y = "Adjusted OR and 95% CI"
+    ) +  
+  theme(legend.position = "None")
 ```
-
+Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. For example, ***
 
 
 # Problem 3
