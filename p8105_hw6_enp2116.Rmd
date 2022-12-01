@@ -10,6 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(p8105.datasets)
 library(tidyverse)
 library(stats)
+library(modelr)
+library(mgcv)
+
+set.seed(4)
 
 ```
 
@@ -38,17 +42,12 @@ Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of 
 
 
 # Problem 2
-
-Reading in Washington Post homicide data:
-```{r, message = FALSE}
-raw_homicide_df =
-  read_csv("data/homicide-data.csv")
-```
+Washington Post homicides:
 
 Creating a city_state variable and a binary variable (outcome) indicating whether the homicide is solved. Omitting cities Dallas, TX; Phoenix, AZ; Kansas City; and MO Tulsa, AL. Limiting analysis those for whom victim_race is white or black, and making sure that victim_age is numeric.
 ```{r, warning = FALSE}
 tidy_homicide = 
-  raw_homicide_df %>% 
+  read_csv("data/homicide-data.csv") %>% 
   mutate(
     city_state = paste(city, state, sep = ", "),
     resolved = as.numeric(disposition == "Closed by arrest"),
@@ -113,22 +112,83 @@ city_state_glms %>%
     ) +  
   theme(legend.position = "None")
 ```
-Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. For example, ***
+Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. This occurs primarily in cities that have the highest male to female adjusted ORs (the right side of the graph).
 
 
 # Problem 3
-analyze data gathered to understand the effects of several variables on a child’s birthweight
+Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
+```{r, message = FALSE}
+tidy_birthweight =
+  read_csv("data/birthweight.csv", col_types = "fnnnnnfnfnnnfnnnnnnnn")
 
-Load and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
+tidy_birthweight %>% summarise_all(list(name = ~sum(is.na(.))/length(.)))
+```
 
-Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. 
+```{r}
+bw_reg_model = 
+  tidy_birthweight %>% 
+  lm(data = ., bwt ~ blength + delwt + gaweeks + fincome + malform + momage + mrace + parity + ppwt + smoken) %>% 
+  summary()
+```
+I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on recent literature indicating that both baby () and mother centric (both health and situational) measures are linked to a baby's low birthweight.
+
+Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+```{r}
+
+```
+
 
 Compare your model to two others:
 
 One using length at birth and gestational age as predictors (main effects only)
-One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
-Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+```{r}
+main_effects_mod = 
+  tidy_birthweight %>% 
+  lm(data = ., bwt ~ blength + gaweeks) 
+```
 
-Note that although we expect your model to be reasonable, model building itself is not a main idea of the course and we don’t necessarily expect your model to be “optimal”.
+One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+```{r}
+interaction_mod = 
+  tidy_birthweight %>% 
+  lm(data = ., bwt ~ bhead*blength*babysex)
+```
+
+Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+```{r}
+cv_df =
+  crossv_mc(tidy_birthweight, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+```
+
+```{r}
+cv_df = 
+  cv_df %>% 
+  mutate(
+    bw_reg_model  = map(train, ~lm(data = ., bwt ~ mrace + gaweeks)),
+    main_effects_mod   = map(train, ~lm(data = ., bwt ~ blength + gaweeks)),
+    interaction_mod  = map(train, ~lm(data = ., bwt ~ bhead*blength*babysex))) %>% 
+  mutate(
+    rmse_bw_reg = map2_dbl(bw_reg_model, test, ~rmse(model = .x, data = .y)),
+    rmse_main_effects  = map2_dbl(main_effects_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_interaction = map2_dbl(interaction_mod, test, ~rmse(model = .x, data = .y)))
+```
+
+Violin plot showing the prediction error distribution for each candidate model:
+```{r}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
+
 
 
