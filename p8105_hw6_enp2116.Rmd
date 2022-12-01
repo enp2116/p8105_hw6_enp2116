@@ -9,6 +9,7 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 library(p8105.datasets)
 library(tidyverse)
+library(stats)
 ```
 
 # Problem 1
@@ -38,25 +39,50 @@ Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of 
 # Problem 2
 
 Reading in Washington Post homicide data:
-```{r}
-
+```{r, message = FALSE}
+raw_homicide_df =
+  read_csv("data/homicide-data.csv")
 ```
 
-
-Create a city_state variable (e.g. “Baltimore, MD”), and a binary variable indicating whether the homicide is solved. Omit cities Dallas, TX; Phoenix, AZ; and Kansas City, MO – these don’t report victim race. Also omit Tulsa, AL – this is a data entry mistake. For this problem, limit your analysis those for whom victim_race is white or black. Be sure that victim_age is numeric.
-```{r}
-
+Creating a city_state variable and a binary variable (outcome) indicating whether the homicide is solved. Omitting cities Dallas, TX; Phoenix, AZ; Kansas City; and MO Tulsa, AL. Limiting analysis those for whom victim_race is white or black, and making sure that victim_age is numeric.
+```{r, warning = FALSE}
+tidy_homicide = 
+  raw_homicide_df %>% 
+  mutate(
+    city_state = paste(city, state, sep = ", "),
+    resolved = as.numeric(disposition == "Closed by arrest"),
+    victim_age = as.numeric(victim_age)) %>% 
+  filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) %>% 
+  filter(victim_race  %in% c( "Black", "White"))
 ```
 
-
-For the city of Baltimore, MD, use the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Save the output of glm as an R object; apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
+For the city of Baltimore, MD, using the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Saving the output of glm as an R object; applying the broom::tidy to this object; and obtaining the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed:
 ```{r}
+balt_log_fit = 
+  tidy_homicide %>% 
+  filter(city_state == "Baltimore, MD") %>% 
+  glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial()) 
 
+balt_log_fit %>% 
+  broom::tidy() %>% 
+  mutate(OR = exp(estimate),
+         est_low_CI = estimate - std.error * qnorm(0.975),
+         est_high_CI = estimate + std.error * qnorm(0.975),
+         OR_low_CI = exp(est_low_CI),
+         OR_high_CI = exp(est_high_CI),
+         ) %>% 
+  filter(term == "victim_sexMale") %>% 
+  select(term, estimate, OR, OR_low_CI, OR_high_CI, p.value) %>% 
+  knitr::kable(digits = 3)
 ```
+We are 95% confident that the adjusted odds ratio for solving homicides comparing male victims to female victims keeping victim race and age fixed is between 0.325 and 0.558. This means that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are substantially less likely to be resolved that those in which the victim is female.
 
-Now run glm for each of the cities in your dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
+Now running glm for each of the cities in my dataset, and extracting the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
 ```{r}
-
+city_state_glms =
+  tidy_homicide %>% 
+  
+  
 ```
 
 Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
