@@ -18,7 +18,7 @@ set.seed(4)
 ```
 
 # Problem 1
-```{r}
+```{r, message = FALSE}
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -33,7 +33,7 @@ weather_df =
 ```
 
 First, we will get a distribution for $\hat{r^2}$ by drawing 5000 bootstrap samples; adding SLR models (with tmax as the response and tmin as the predictor) to each sample. Then, we extract the $\hat{r^2}$ value from the model results and plot the density.
-```{r}
+```{r, cache = TRUE}
 r_squared_estimates =
   weather_df %>% 
   modelr::bootstrap(n = 5000) %>% 
@@ -55,7 +55,7 @@ quantile(r_squared_estimates$r.squared, na.rm = T,probs = c(0.025, 0.975))
 In this plot, we can see that the $\hat{r}^2$ value is high (peak at around 0.91) and that the distribution has a left-skew (most likely due to upper bound at 1). The 2.5% and 97.5% quantiles of the estimates across our bootstrap samples allow to construct a 95% CI for ${r}^2$, which is (0.894, 0.928). Since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
 
 Next, we will get a distribution for $log(\hat{\beta_0 * \beta_1})$ by a similar process: drawing bootstrap samples; adding SLR models (with tmax as the response and tmin as the predictor) to each sample and extracting the $log(\hat{\beta_0 * \beta_1})$ value to plot the density.
-```{r}
+```{r, cache = TRUE}
 log_beta_product_est =
 weather_df %>% 
   modelr::bootstrap(n = 5000) %>% 
@@ -79,14 +79,14 @@ log_beta_product_est %>%
 
 quantile(log_beta_product_est$log_b0b1, na.rm = T,probs = c(0.025, 0.975))
 ```
-From the plot, we can see that the $log(\hat{\beta_0 * \beta_1})$ distribution is also somewhat left-skewed (outliers with a lower $log(\hat{\beta_0 * \beta_1})$) but has a peak at around 2.01. The 2.5% and 97.5% quantiles of the estimates across bootstrap samples allow us to construct a 95% CI for $log(\hat{\beta_0 * \beta_1})$, which is (1.965, 2.060). Again, since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
+From the plot, we can see that the $log(\hat{\beta_0 * \beta_1})$ distribution is also somewhat skewed***** (outliers with a **** $log(\hat{\beta_0 * \beta_1})$) but has a peak at around 2.01. The 2.5% and 97.5% quantiles of the estimates across bootstrap samples allow us to construct a 95% CI for $log(\hat{\beta_0 * \beta_1})$, which is (1.965, 2.060). Again, since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
 
 
 # Problem 2
 Washington Post homicides:
 
 Creating a city_state variable and a binary variable (outcome) indicating whether the homicide is solved. Omitting cities Dallas, TX; Phoenix, AZ; Kansas City; and MO Tulsa, AL. Limiting analysis those for whom victim_race is white or black, and making sure that victim_age is numeric.
-```{r, warning = FALSE}
+```{r, warning = FALSE, message = FALSE}
 tidy_homicide = 
   read_csv("data/homicide-data.csv") %>% 
   mutate(
@@ -95,7 +95,6 @@ tidy_homicide =
     victim_age = as.numeric(victim_age)) %>% 
   filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) %>% 
   filter(victim_race  %in% c( "Black", "White"))
-
 
 ```
 
@@ -118,9 +117,9 @@ balt_log_fit %>%
   select(term, OR, OR_low_CI, OR_high_CI, p.value) %>% 
   knitr::kable(digits = 3)
 ```
-We are 95% confident that the adjusted odds ratio for solving homicides comparing male victims to female victims keeping victim race and age fixed is between 0.325 and 0.558. Since this value is less than one, this means that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female.
+We are 95% confident that the adjusted odds ratio for solving homicides comparing male victims to female victims keeping victim race and age fixed is between 0.325 and 0.558. Since the odds ratio is less than one and its p-value = 0 < 0.05, this means that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are significantly less likely to be resolved that those in which the victim is female.
 
-Now running glm for each of the cities in my dataset, and extracting the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
+Now running glm for each of the cities in my dataset, and extracting the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims:
 ```{r}
 city_state_glms =
   tidy_homicide %>% 
@@ -155,11 +154,11 @@ city_state_glms %>%
     ) +  
   theme(legend.position = "None")
 ```
-Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. This occurs primarily in cities that have the highest male to female adjusted ORs (the right side of the graph).
+Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. This occurs primarily in cities that have the highest male to female adjusted ORs (the right side of the graph). ****
 
 
 # Problem 3
-Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
+Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.). ****
 ```{r, message = FALSE}
 tidy_birthweight =
   read_csv("data/birthweight.csv", col_types = "fnnnnnfnfnnnfnnnnnnnn")
@@ -171,18 +170,19 @@ Propose a regression model for birthweight. This model may be based on a hypothe
 ```{r}
 bw_reg_model = 
   tidy_birthweight %>% 
-  lm(data = ., bwt ~ blength + delwt*ppwt + gaweeks + fincome + mrace + parity  + smoken) %>%
-  summary()
+  lm(data = ., bwt ~ blength + delwt + ppwt + gaweeks + fincome + mrace + parity  + smoken)
 ```
-I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on recent literature indicating key baby/pregnancy measures and mother-centric (both demographic and situational) measures that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. 
+I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on current literature indicating key baby/pregnancy/mother measures (both innate and situational) that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. My final model had blength, delwt, gaweeks, fincome , mrace, parity, ppwt, and smoken as predictors, which all had statistically significant p-values less than 0.05 (with the exception of mrace3). The final adjusted $R^2$ was 0.6222, which did not improve with taking out additional variables.
 
-Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+Show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 ```{r}
-
+modelr::add_residuals(data = tidy_birthweight, model = bw_reg_model) %>% 
+modelr::add_predictions(data = ., model = bw_reg_model) %>% 
+  ggplot(aes(x = pred, y = resid)) + geom_point(alpha = 0.25) +
+  geom_hline(yintercept=0,linetype="dashed", col="red")
 ```
 
-
-Compare your model to two others:
+Compare model to two other models:
 
 One using length at birth and gestational age as predictors (main effects only)
 ```{r}
@@ -207,7 +207,7 @@ cv_df =
     test = map(test, as_tibble))
 ```
 
-```{r}
+```{r, warning = FALSE}
 cv_df = 
   cv_df %>% 
   mutate(

@@ -1,0 +1,13 @@
+p8105.datasets
+tidyverse
+ggplot2
+tibble
+tidyr
+readr
+purrr
+dplyr
+stringr
+forcats
+modelr
+nlme
+mgcv
