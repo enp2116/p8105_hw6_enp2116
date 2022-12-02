@@ -32,13 +32,54 @@ weather_df =
   select(name, id, everything())
 ```
 
-simple linear regression with tmax as the response and tmin as the predictor, and are interested in the distribution of two quantities estimated from these data:
-* $\hat{r^2}$
-* $log(\hat{\beta_0 * \beta_1})$
+First, we will get a distribution for $\hat{r^2}$ by drawing 5000 bootstrap samples; adding SLR models (with tmax as the response and tmin as the predictor) to each sample. Then, we extract the $\hat{r^2}$ value from the model results and plot the density.
+```{r}
+r_squared_estimates =
+  weather_df %>% 
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    lin_models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
+    lin_mod_results = map(lin_models, broom::glance)
+    ) %>% 
+  select(-strap, -lin_models) %>% 
+  unnest(lin_mod_results)
 
-Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for $\hat{r^2}$
- and $log(\hat{\beta_0 * \beta_1})$). Note: broom::glance() is helpful for extracting r̂2
- from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing $log(\hat{\beta_0 * \beta_1})$
+r_squared_estimates %>% 
+  ggplot(aes(x = r.squared)) + geom_density() + labs(
+    title = "Distribution of R Squared",
+    x = "R Squared",
+    y = "Density")
+
+quantile(r_squared_estimates$r.squared, na.rm = T,probs = c(0.025, 0.975))
+```
+In this plot, we can see that the $\hat{r}^2$ value is high (peak at around 0.91) and that the distribution has a left-skew (most likely due to upper bound at 1). The 2.5% and 97.5% quantiles of the estimates across our bootstrap samples allow to construct a 95% CI for ${r}^2$, which is (0.894, 0.928). Since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
+
+Next, we will get a distribution for $log(\hat{\beta_0 * \beta_1})$ by a similar process: drawing bootstrap samples; adding SLR models (with tmax as the response and tmin as the predictor) to each sample and extracting the $log(\hat{\beta_0 * \beta_1})$ value to plot the density.
+```{r}
+log_beta_product_est =
+weather_df %>% 
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    lin_models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
+    lin_mod_results = map(lin_models, broom::tidy)) %>% 
+  select(-strap, -lin_models) %>% 
+  unnest(lin_mod_results) %>% 
+  select(id = `.id`, term, estimate) %>% 
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate) %>% 
+  rename(beta0 = `(Intercept)`, beta1 = tmin) %>% 
+  mutate(log_b0b1 = log(beta0 * beta1)) 
+
+log_beta_product_est %>% 
+  ggplot(aes(x = log_b0b1)) + geom_density() + labs(
+    title = "Distribution of Log(Beta 0 * Beta 1)",
+    x = "Log(Beta 0 * Beta 1)",
+    y = "Density")
+
+quantile(log_beta_product_est$log_b0b1, na.rm = T,probs = c(0.025, 0.975))
+```
+From the plot, we can see that the $log(\hat{\beta_0 * \beta_1})$ distribution is also somewhat left-skewed (outliers with a lower $log(\hat{\beta_0 * \beta_1})$) but has a peak at around 2.01. The 2.5% and 97.5% quantiles of the estimates across bootstrap samples allow us to construct a 95% CI for $log(\hat{\beta_0 * \beta_1})$, which is (1.965, 2.060). Again, since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
 
 
 # Problem 2
@@ -54,6 +95,8 @@ tidy_homicide =
     victim_age = as.numeric(victim_age)) %>% 
   filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) %>% 
   filter(victim_race  %in% c( "Black", "White"))
+
+
 ```
 
 For the city of Baltimore, MD, using the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Saving the output of glm as an R object; applying the broom::tidy to this object; and obtaining the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed:
@@ -75,7 +118,7 @@ balt_log_fit %>%
   select(term, OR, OR_low_CI, OR_high_CI, p.value) %>% 
   knitr::kable(digits = 3)
 ```
-We are 95% confident that the adjusted odds ratio for solving homicides comparing male victims to female victims keeping victim race and age fixed is between 0.325 and 0.558. This means that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are substantially less likely to be resolved that those in which the victim is female.
+We are 95% confident that the adjusted odds ratio for solving homicides comparing male victims to female victims keeping victim race and age fixed is between 0.325 and 0.558. Since this value is less than one, this means that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female.
 
 Now running glm for each of the cities in my dataset, and extracting the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
 ```{r}
@@ -128,10 +171,10 @@ Propose a regression model for birthweight. This model may be based on a hypothe
 ```{r}
 bw_reg_model = 
   tidy_birthweight %>% 
-  lm(data = ., bwt ~ blength + delwt + gaweeks + fincome + malform + momage + mrace + parity + ppwt + smoken) %>% 
+  lm(data = ., bwt ~ blength + delwt*ppwt + gaweeks + fincome + mrace + parity  + smoken) %>%
   summary()
 ```
-I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on recent literature indicating that both baby () and mother centric (both health and situational) measures are linked to a baby's low birthweight.
+I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on recent literature indicating key baby/pregnancy measures and mother-centric (both demographic and situational) measures that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. 
 
 Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 ```{r}
@@ -168,7 +211,7 @@ cv_df =
 cv_df = 
   cv_df %>% 
   mutate(
-    bw_reg_model  = map(train, ~lm(data = ., bwt ~ mrace + gaweeks)),
+    bw_reg_model  = map(train, ~lm(data = ., bwt ~ blength + delwt + gaweeks + fincome + mrace + parity + ppwt + smoken)),
     main_effects_mod   = map(train, ~lm(data = ., bwt ~ blength + gaweeks)),
     interaction_mod  = map(train, ~lm(data = ., bwt ~ bhead*blength*babysex))) %>% 
   mutate(
