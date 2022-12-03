@@ -161,7 +161,18 @@ Based on the plot, we can see that the majority of cities have an adjusted odds 
 Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.). ****
 ```{r, message = FALSE}
 tidy_birthweight =
-  read_csv("data/birthweight.csv", col_types = "fnnnnnfnfnnnfnnnnnnnn")
+  read_csv("data/birthweight.csv") %>% 
+  janitor::clean_names() %>%
+  mutate(
+    babysex = as.factor(babysex),
+    babysex = fct_recode(babysex, "male" = "1", "female" = "2"),
+    frace = as.factor(frace),
+    frace = fct_recode(frace, "white" = "1", "black" = "2", "asian" = "3", 
+                       "puerto rican" = "4", "other" = "8"),
+    malform = as.logical(malform),
+    mrace = as.factor(mrace),
+    mrace = fct_recode(mrace, "white" = "1", "black" = "2", "asian" = "3", 
+                       "puerto rican" = "4"))
 
 tidy_birthweight %>% summarise_all(list(name = ~sum(is.na(.))/length(.)))
 ```
@@ -170,9 +181,11 @@ Propose a regression model for birthweight. This model may be based on a hypothe
 ```{r}
 bw_reg_model = 
   tidy_birthweight %>% 
-  lm(data = ., bwt ~ blength + delwt + ppwt + gaweeks + fincome + mrace + parity  + smoken)
+  lm(data = ., bwt ~ blength + delwt + ppwt + gaweeks + fincome + mrace + parity  + smoken) 
+
+summary(bw_reg_model)
 ```
-I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on current literature indicating key baby/pregnancy/mother measures (both innate and situational) that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. My final model had blength, delwt, gaweeks, fincome , mrace, parity, ppwt, and smoken as predictors, which all had statistically significant p-values less than 0.05 (with the exception of mrace3). The final adjusted $R^2$ was 0.6222, which did not improve with taking out additional variables.
+I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on current literature indicating key baby/pregnancy/mother measures (both innate and situational) that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. My final model had blength, delwt, gaweeks, fincome , mrace, parity, ppwt, and smoken as predictors, which all had statistically significant p-values less than 0.05 (with the exception of mraceasian compared to mracewhite). The final adjusted $R^2$ was 0.6222, which did not improve with taking out additional variables.
 
 Show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 ```{r}
@@ -189,14 +202,20 @@ One using length at birth and gestational age as predictors (main effects only)
 main_effects_mod = 
   tidy_birthweight %>% 
   lm(data = ., bwt ~ blength + gaweeks) 
+
+summary(main_effects_mod)
 ```
+The main effects model has all statistically significant p-values less than 0.05 , with an adjusted $R^2$ of 0.5767.
 
 One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 ```{r}
 interaction_mod = 
   tidy_birthweight %>% 
   lm(data = ., bwt ~ bhead*blength*babysex)
+
+summary(interaction_mod)
 ```
+This interaction model had all statistically significant p-values less than 0.05 (with the exception of bhead:blength), with an adjusted $R^2$ of 0.6844.
 
 Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
 ```{r}
@@ -233,5 +252,4 @@ cv_df %>%
   ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
 
-
-
+Based on the violin plot of prediction errors, we can conclude that the best model is the interaction model, with my proposed model next, and finally the main effects model. This agrees with the conclusions we would gather from the adjusted $R^2$.
