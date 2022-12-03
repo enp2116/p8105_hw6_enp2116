@@ -79,7 +79,7 @@ log_beta_product_est %>%
 
 quantile(log_beta_product_est$log_b0b1, na.rm = T,probs = c(0.025, 0.975))
 ```
-From the plot, we can see that the $log(\hat{\beta_0 * \beta_1})$ distribution is also somewhat skewed***** (outliers with a **** $log(\hat{\beta_0 * \beta_1})$) but has a peak at around 2.01. The 2.5% and 97.5% quantiles of the estimates across bootstrap samples allow us to construct a 95% CI for $log(\hat{\beta_0 * \beta_1})$, which is (1.965, 2.060). Again, since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
+From the plot, we can see that the $log(\hat{\beta_0 * \beta_1})$ distribution is also somewhat skewed but has a peak at around 2.01. The 2.5% and 97.5% quantiles of the estimates across bootstrap samples allow us to construct a 95% CI for $log(\hat{\beta_0 * \beta_1})$, which is (1.965, 2.060). Again, since our distribution is not symmetric, this is a better approximation than the standard CI formula (mean +/- 1.96*SE).
 
 
 # Problem 2
@@ -154,11 +154,12 @@ city_state_glms %>%
     ) +  
   theme(legend.position = "None")
 ```
-Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. This occurs primarily in cities that have the highest male to female adjusted ORs (the right side of the graph). ****
+Based on the plot, we can see that the majority of cities have an adjusted odds ratio less than 1, indicating that when controlling for the impacts of other victim-related variables, homicides in which the victims are male are less likely to be resolved that those in which the victim is female. We do however, see some cities with quite wide 95% CIs for this odds ratio. This occurs primarily in cities that have the highest male to female adjusted ORs (the right side of the graph), such as Albuquerque, NM, Stockton, CA, and Fresno, CA.
+
 
 
 # Problem 3
-Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.). ****
+Loading and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.). There seems to be no missing data.
 ```{r, message = FALSE}
 tidy_birthweight =
   read_csv("data/birthweight.csv") %>% 
@@ -187,13 +188,14 @@ summary(bw_reg_model)
 ```
 I built my proposed model using backward elimination, initially starting with the variables of blength, delwt, gaweeks, fincome , malform, momage, mrace, parity, ppwt, and smoken. I chose these variables based on current literature indicating key baby/pregnancy/mother measures (both innate and situational) that have been linked to a baby's low birthweight. I first removed malform, as it had the highest alpha of 0.717. After running the regression again, I removed momage, as it had the next highest alpha of 0.375. My final model had blength, delwt, gaweeks, fincome , mrace, parity, ppwt, and smoken as predictors, which all had statistically significant p-values less than 0.05 (with the exception of mraceasian compared to mracewhite). The final adjusted $R^2$ was 0.6222, which did not improve with taking out additional variables.
 
-Show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+Plot of model residuals against fitted values:
 ```{r}
 modelr::add_residuals(data = tidy_birthweight, model = bw_reg_model) %>% 
 modelr::add_predictions(data = ., model = bw_reg_model) %>% 
   ggplot(aes(x = pred, y = resid)) + geom_point(alpha = 0.25) +
   geom_hline(yintercept=0,linetype="dashed", col="red")
 ```
+This residual plot seems to show no pattern (which is good), with the exception of some higher residual values at low predicted values.
 
 Compare model to two other models:
 
